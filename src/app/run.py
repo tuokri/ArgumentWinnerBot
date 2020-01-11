@@ -1,8 +1,12 @@
 import argparse
+import configparser
 import sys
 from argparse import Namespace
+from pathlib import Path
 
 import praw
+
+CONFIG_PATH = Path("config.cfg")
 
 
 def learn():
@@ -15,6 +19,28 @@ def scrape(reddit: praw.Reddit):
 
 def run(reddit: praw.Reddit):
     pass
+
+
+def read_config(config_path: Path) -> configparser.ConfigParser:
+    config_path = str(config_path)
+    cp = configparser.ConfigParser()
+    found = cp.read(config_path, encoding="utf-8")
+    if not found:
+        raise RuntimeError(f"unable to locate config file: {config_path}")
+    return cp
+
+
+def find_config(config_path: Path) -> Path:
+    config_path = Path(config_path)
+    if config_path.exists():
+        return config_path
+    else:
+        app_dir = Path(__file__)
+        cfg_path = app_dir.parent / config_path
+        if not cfg_path.exists():
+            raise RuntimeError(f"unable to locate config file: {config_path}")
+        else:
+            return cfg_path
 
 
 def parse_args() -> Namespace:
@@ -44,11 +70,13 @@ def parse_args() -> Namespace:
 
 def main():
     args = parse_args()
+    config = read_config(find_config(CONFIG_PATH))
+    reddit_config = config["reddit"]
 
     if args.learn:
         learn()
     else:
-        reddit = praw.Reddit()
+        reddit = praw.Reddit(**reddit_config)
         if args.run:
             run(reddit)
         elif args.scrape:
