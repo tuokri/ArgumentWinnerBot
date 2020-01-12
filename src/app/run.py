@@ -1,12 +1,23 @@
 import argparse
 import configparser
 import sys
+import time
 from argparse import Namespace
 from pathlib import Path
+from time import time
 
 import praw
+from logbook import StreamHandler, Logger
+
+from src.scraping import evaluate_comment_reply_pair
 
 CONFIG_PATH = Path("config.cfg")
+UPVOTE_LOW_LIMIT = -5
+
+handler = StreamHandler(sys.stdout, level="INFO")
+logger = Logger(__name__)
+logger.handlers.append(handler)
+handler.push_application()
 
 
 def learn():
@@ -14,7 +25,35 @@ def learn():
 
 
 def scrape(reddit: praw.Reddit):
-    pass
+    subreddits = []
+
+    for subreddit in reddit.subreddits.popular():
+        subreddits.append(subreddit)
+    for subreddit in reddit.subreddits.default():
+        subreddits.append(subreddit)
+    for subreddit in reddit.user.subreddits():
+        subreddits.append(subreddit)
+
+    subreddits = list(set(subreddits))
+    for subreddit in subreddits:
+        for submission in subreddit.submissions:
+
+            while True:
+                try:
+                    submission.comments.replace_more(limit=15)
+                    break
+                except Exception as e:
+                    print(e)
+                    time.sleep(0.25)
+
+            for comment in submission.comments:
+                if comment.upvotes < UPVOTE_LOW_LIMIT:
+                    logger.info()
+                    continue
+                else:
+                    comment = evaluate_comment_reply_pair(comment)
+                    while comment:
+                        comment = evaluate_comment_reply_pair(comment)
 
 
 def run(reddit: praw.Reddit):
